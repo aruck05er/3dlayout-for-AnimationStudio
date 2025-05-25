@@ -557,8 +557,6 @@ class Figure_PTO_panel(Panel):
         layout.label(text="Localize")
         layout.label(text="選択したオブジェクトを編集可能にする")
         layout.operator('figure.external_localize', text="Localize")
-######
-######
 
 class Figure_Panel(bpy.types.Panel):
     bl_label = "Figure_Controll"
@@ -679,8 +677,7 @@ class Mirror_Pose(bpy.types.Operator):
     def execute(self, context):
         button5_callback(None)
         return {'FINISHED'}
-######
-######
+
 classes = (
     FigureItem,
     OverrideItem,

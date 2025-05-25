@@ -48,45 +48,37 @@ def clean_unpaired_switch_collections():
     scene = bpy.context.scene
     prop_to_colls = defaultdict(list)
 
-    # 1. Switch Collectionプロパティを持つコレクションを集める
     for coll in bpy.data.collections:
         for key, val in coll.items():
             if key.startswith("Switch Collection"):
                 prop_to_colls[(key, val)].append(coll)
 
-    # 2. ペアができていないコレクションを抽出
     unpaired = []
     for (key, val), colls in prop_to_colls.items():
         if len(colls) < 2:
             unpaired.extend(colls)
 
-    # 3. 安全に削除
     for coll in unpaired:
         parent = next((p for p in bpy.data.collections if coll.name in p.children), None)
         target_parent = parent or bpy.context.scene.collection
 
-        # 子を移動
         for child in list(coll.children):
             target_parent.children.link(child)
             coll.children.unlink(child)
 
-        # オブジェクトを移動
         for obj in list(coll.objects):
             if obj.name not in target_parent.objects:
                 target_parent.objects.link(obj)
             coll.objects.unlink(obj)
 
-        # 他の親からも unlink
         for p in bpy.data.collections:
             if coll.name in p.children:
                 p.children.unlink(coll)
         if coll.name in bpy.context.scene.collection.children:
             bpy.context.scene.collection.children.unlink(coll)
 
-        # remove 実行
         bpy.data.collections.remove(coll)
 
-    # 孤立データの整理
     bpy.ops.outliner.orphans_purge(do_recursive=True)
     print(f"Unpaired Switch Collection 削除完了: {len(unpaired)} 件")
     
@@ -223,7 +215,6 @@ def update_camera(self, context):
         scan(root)
     bpy.ops.scene.refresh_switch_list()
     clean_unpaired_switch_collections()
-
 
 # ---------------------------------------------------
 # Panels
@@ -375,7 +366,6 @@ class OBJECT_OT_copy_layer(Operator):
 def duplicate_collection(src, dest):
     obj_map = {}
 
-    # 1. オブジェクト複製
     for obj in src.objects:
         dup = obj.copy()
         if obj.data:
@@ -384,7 +374,6 @@ def duplicate_collection(src, dest):
         dup.matrix_local = obj.matrix_local.copy()
         obj_map[obj] = dup
 
-    # 2. 子コレクションを複製（Switch Collection プロパティがあるものはスキップ）
     for child in src.children:
         has_switch_prop = any(
             key.startswith("Switch Collection") for key, val in child.items()
@@ -398,7 +387,6 @@ def duplicate_collection(src, dest):
         child_map = duplicate_collection(child, dup_child)
         obj_map.update(child_map)
 
-    # 3. 親子関係を再接続
     for src_obj, dup_obj in obj_map.items():
         if src_obj.parent in obj_map:
             dup_obj.parent = obj_map[src_obj.parent]
@@ -408,8 +396,6 @@ def duplicate_collection(src, dest):
             dup_obj.matrix_parent_inverse = src_obj.matrix_parent_inverse.copy()
 
     return obj_map
-
-
     
 class VIEW3D_PT_cam_control(Panel):
     bl_label = "Cam Control"
@@ -420,7 +406,6 @@ class VIEW3D_PT_cam_control(Panel):
     def draw(self, context):
         layout = self.layout
         obj = context.active_object
-
         box = layout.box()
         row = box.row()
         row.scale_y = 3.0
@@ -441,18 +426,14 @@ class VIEW3D_PT_cam_control(Panel):
 
             box = layout.box()
             box.label(text=props.control_mode)
-
             col = box.column(align=True)
 
-                
             if props.control_mode == 'MOVE':
                 if props.axis_mode == 'LOCAL':
                     col.operator("camera.move_direction", text="上").direction = 'FORWARD'
-
                     row = col.row(align=True)
                     row.operator("camera.move_direction", text="左").direction = 'RIGHT'
                     row.operator("camera.move_direction", text="右").direction = 'LEFT'
-
                     col.operator("camera.move_direction", text="下").direction = 'BACKWARD'
                     col.operator("camera.move_direction", text="前").direction = 'DOWN'
                     col.operator("camera.move_direction", text="後").direction = 'UP'
@@ -473,7 +454,6 @@ class VIEW3D_PT_cam_control(Panel):
                 op = row.operator("camera.rotate_axis", text="△")
                 op.axis = 'X'
                 op.direction = 1.0
-
                 col.label(text="Z軸回転:")
                 row = col.row(align=True)
                 op = row.operator("camera.rotate_axis", text="◁")
@@ -482,7 +462,6 @@ class VIEW3D_PT_cam_control(Panel):
                 op = row.operator("camera.rotate_axis", text="▷")
                 op.axis = 'Z'
                 op.direction = -1.0
-
                 col.label(text="ロール (Y軸):")
                 row = col.row(align=True)
                 op = row.operator("camera.rotate_axis", text="◁")
@@ -628,7 +607,6 @@ class OverScanCamera(Operator):
 
         return {'FINISHED'}
 
-
 def ResolutionUpdate(self, context):
     scene = context.scene
     overscan = scene.camera_overscan
@@ -669,7 +647,6 @@ def ResolutionUpdate(self, context):
             active_cam.sensor_width = overscan.RO_Safe_SensorSize
             active_cam.sensor_fit = overscan.RO_Safe_SensorFit
             overscan.RO_Safe_SensorSize = -1
-
 
 def RO_Menu(self, context):
     scene = context.scene
@@ -1023,7 +1000,6 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
         min=0
     )
 
-
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "change_color")
@@ -1043,13 +1019,11 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
             self.report({'ERROR'}, "There is no active camera.")
             return {'CANCELLED'}
 
-        # カメラ名のコレクション（親）を取得または作成
         cam_col = bpy.data.collections.get(cam.name)
         if not cam_col:
             cam_col = bpy.data.collections.new(cam.name)
             scene.collection.children.link(cam_col)
 
-        # Bookコレクションの取得または作成
         book_col_name = f"{cam_col.name} Book {self.book_n}"
         book_col = bpy.data.collections.get(book_col_name)
         if not book_col:
@@ -1058,19 +1032,16 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
 
         count = 0
         for obj in context.selected_objects:
-            # ▼ 元の親コレクションを取得
             parent_col = obj.users_collection[0] if obj.users_collection else None
             if not parent_col:
-                parent_col = scene.collection  # シーンルートに退避
+                parent_col = scene.collection 
 
-            # ▼ 元オブジェクト名のサブコレクションを作成（すでに存在していない場合）
             src_coll_name = obj.name
             src_coll = bpy.data.collections.get(src_coll_name)
             if not src_coll:
                 src_coll = bpy.data.collections.new(src_coll_name)
                 parent_col.children.link(src_coll)
 
-            # ▼ オブジェクトを他のコレクションからアンリンク（※重複リンク防止）
             for c in obj.users_collection:
                 try:
                     c.objects.unlink(obj)
@@ -1079,7 +1050,6 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
             if obj.name not in src_coll.objects:
                 src_coll.objects.link(obj)
 
-            # ▼ カスタムプロパティをコレクションに付与
             existing_idxs = sorted(
                 int(k.replace("Switch Collection", "").split('_')[0])
                 for k in src_coll.keys() if k.startswith("Switch Collection")
@@ -1089,19 +1059,15 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
             prop_key = f"Switch Collection{next_idx}_{uid}"
             src_coll[prop_key] = cam.name
 
-            # ▼ 複製処理
             dup = obj.copy()
             if obj.data:
                 dup.data = obj.data.copy()
 
-            # ▼ Bookコレクションにリンク
             book_col.objects.link(dup)
 
-            # ▼ Bookコレクションにもプロパティを付与（識別用）
             if prop_key not in book_col.keys():
                 book_col[prop_key] = cam.name
 
-            # ▼ カラー変更オプション
             if self.change_color:
                 mat = (dup.active_material.copy() if dup.active_material else bpy.data.materials.new(f"Mat_{dup.name}"))
                 mat.diffuse_color = (*self.color, 1.0)
@@ -1110,7 +1076,6 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
 
             count += 1
 
-        # ▼ Book内すべてに統一マテリアル適用（必要であれば）
         if self.change_color:
             mat_name = f"Mat_{book_col.name}"
             mat = bpy.data.materials.new(mat_name)
@@ -1311,10 +1276,8 @@ class CAMERA_OT_apply_transform_from_bg(Operator):
         scene = context.scene
         camera = scene.camera
         cam_data = camera.data
-
         res_x = scene.render.resolution_x
         res_y = scene.render.resolution_y
-
         scene.use_nodes = True
         tree  = scene.node_tree
         nodes = tree.nodes
@@ -1335,23 +1298,19 @@ class CAMERA_OT_apply_transform_from_bg(Operator):
                 img.label    = f"{i}_Frame.png"
                 img.image    = bpy.data.images.get("Frame.png")
                 img.location = (x, 200)
-
                 tr = nodes.new(type='CompositorNodeTransform')
                 tr.label    = f"{i}_Frame Transform"
                 tr.location = (x, 0)
                 tr.filter_type  = "BICUBIC"
                 links.new(img.outputs['Image'], tr.inputs['Image'])
-
                 ao = nodes.new(type='CompositorNodeAlphaOver')
                 ao.label          = f"{i}_Alpha Over"
                 ao.use_premultiply = False
                 ao.premul = 1
                 ao.location = (x, -200)
                 ao.inputs[0].default_value = 1.0
-
                 links.new(tr.outputs['Image'],    ao.inputs[2])
                 links.new(rl.outputs['Image'],    ao.inputs[1])
-
                 alpha_nodes.append(ao)
 
             mix_nodes = []
