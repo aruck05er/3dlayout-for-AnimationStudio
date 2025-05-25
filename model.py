@@ -52,35 +52,35 @@ def collect_override_layer_collections(layer_coll, result_list):
     for child in layer_coll.children:
         collect_override_layer_collections(child, result_list)
 
-class DekItem(PropertyGroup):
+class FigureItem(PropertyGroup):
     name: StringProperty(name="Blend File Name")
 
 class OverrideItem(PropertyGroup):
     name: StringProperty(name="Collection Name")
 
-class DEK_OT_setup(Operator):
-    bl_idname = "dek.setup"
-    bl_label = "Set up Dek List"
+class Figure_OT_setup(Operator):
+    bl_idname = "figure.setup"
+    bl_label = "Set up Figure List"
     bl_description = "Scan the custom folder and list .blend files"
 
     def execute(self, context):
         wm = context.window_manager
-        blend_folder = bpy.path.abspath(wm.dek_path)
-        wm.dek_items.clear()
+        blend_folder = bpy.path.abspath(wm.figure_path)
+        wm.figure_items.clear()
         if os.path.isdir(blend_folder):
             for f in sorted(os.listdir(blend_folder)):
                 if f.lower().endswith('.blend'):
-                    item = wm.dek_items.add()
+                    item = wm.figure_items.add()
                     item.name = os.path.splitext(f)[0]
-            if wm.dek_items:
-                wm.dek_list = wm.dek_items[0].name
+            if wm.figure_items:
+                wm.figure_list = wm.figure_items[0].name
             return {'FINISHED'}
         else:
             self.report({'ERROR'}, "Invalid folder path")
             return {'CANCELLED'}
 
-class DEK_OT_refresh_override_list(Operator):
-    bl_idname = "dek.refresh_override_list"
+class Figure_OT_refresh_override_list(Operator):
+    bl_idname = "figure.refresh_override_list"
     bl_label = "Refresh Armature List"
     bl_description = "Refresh list of collections under the active camera that contain armatures"
     
@@ -124,23 +124,23 @@ def override_selection_update(self, context):
         for o in col.objects:
             o.select_set(True)
 
-class DEK_OT_add(Operator):
-    bl_idname = "dek.add"
-    bl_label = "Add Dek"
+class Figure_OT_add(Operator):
+    bl_idname = "figure.add"
+    bl_label = "Add Figure"
     bl_description = "Link all collections from the selected .blend file and store them in the active camera's collection"
 
     def execute(self, context):
         wm = context.window_manager
 
-        if wm.dek_mode == 'DEFAULT':
+        if wm.figure_mode == 'DEFAULT':
             script_dir = os.path.dirname(__file__)
-            blend_path = os.path.join(script_dir, "model", "Default_Dek.blend")
+            blend_path = os.path.join(script_dir, "model", "Default_Figure.blend")
         else:
-            name = wm.dek_list
+            name = wm.figure_list
             if not name:
                 self.report({'ERROR'}, "No file selected in custom mode")
                 return {'CANCELLED'}
-            blend_path = os.path.join(bpy.path.abspath(wm.dek_path), name + ".blend")
+            blend_path = os.path.join(bpy.path.abspath(wm.figure_path), name + ".blend")
             
         with bpy.data.libraries.load(blend_path, link=True) as (data_from, data_to):
             col_names = data_from.collections[:]
@@ -220,13 +220,13 @@ def update_armature_height(context):
         bpy.context.view_layer.update()
         bpy.ops.object.transforms_to_deltas(mode='ALL')
         
-class DEK_UL_override_list(UIList):
+class Figure_UL_override_list(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         layout.label(text=item.name)
 
-class DEK_PT_panel(Panel):
-    bl_label = "Dek"
-    bl_idname = "DEK_PT_panel"
+class Figure_PT_panel(Panel):
+    bl_label = "Figure"
+    bl_idname = "Figure_PT_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "Model"
@@ -234,32 +234,32 @@ class DEK_PT_panel(Panel):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context.window_manager, "dek_mode")
+        return hasattr(context.window_manager, "figure_mode")
 
     def draw(self, context):
         wm = context.window_manager
         layout = self.layout
-        layout.prop(wm, "dek_mode", expand=True)
-        if wm.dek_mode == 'CUSTOM':
-            layout.prop(wm, "dek_path")
-            layout.operator("dek.setup", text="Set up")
-            if wm.dek_items:
-                layout.prop(wm, "dek_list", text="Select .blend")
-        layout.operator("dek.add", text="マネキンを追加")
+        layout.prop(wm, "figure_mode", expand=True)
+        if wm.figure_mode == 'CUSTOM':
+            layout.prop(wm, "figure_path")
+            layout.operator("figure.setup", text="Set up")
+            if wm.figure_items:
+                layout.prop(wm, "figure_list", text="Select .blend")
+        layout.operator("figure.add", text="マネキンを追加")
         layout.separator()
         layout.label(text='List')
-        layout.operator('dek.refresh_override_list', text='リスト更新')
+        layout.operator('figure.refresh_override_list', text='リスト更新')
         layout.template_list(
-            'DEK_UL_override_list', '',
+            'Figure_UL_override_list', '',
             wm, 'override_items',
             wm, 'override_index',
             rows=5
         )
-        layout.operator('dek.delete_override', text='削除')
+        layout.operator('figure.delete_override', text='削除')
 
         obj = context.active_object
         if obj and obj.type == 'ARMATURE':
-            layout.label(text="Dek Controll")
+            layout.label(text="Figure Controll")
             row = layout.row(align=True)
             row.label(text=f"Mode: {obj.mode}")
             row = layout.row(align=True)
@@ -272,26 +272,26 @@ class DEK_PT_panel(Panel):
 
 def init_props():
     wm = bpy.types.WindowManager
-    wm.dek_mode = EnumProperty(
+    wm.figure_mode = EnumProperty(
         name="Mode",
         items=[
-            ('DEFAULT', "Default", "Use default dek.blend from addon folder"),
+            ('DEFAULT', "Default", "Use default figure.blend from addon folder"),
             ('CUSTOM',  "Custom",  "Use custom folder path"),
         ],
         default='DEFAULT'
     )
-    wm.dek_path = StringProperty(
-        name="Dek Path",
+    wm.figure_path = StringProperty(
+        name="Figure Path",
         description="Folder containing .blend files",
         subtype='DIR_PATH',
         default=""
     )
-    wm.dek_items = CollectionProperty(type=DekItem)
-    wm.dek_list = EnumProperty(
+    wm.figure_items = CollectionProperty(type=FigureItem)
+    wm.figure_list = EnumProperty(
         name="Blend Files",
         description="Choose a .blend file",
         items=lambda self, context: [
-            (item.name, item.name, "") for item in context.window_manager.dek_items
+            (item.name, item.name, "") for item in context.window_manager.figure_items
         ] or [("", "None", "")],
     )
     wm.override_items = CollectionProperty(type=OverrideItem)
@@ -308,7 +308,7 @@ def init_props():
 
 def clear_props():
     wm = bpy.types.WindowManager
-    for p in ['dek_mode','dek_path','dek_items','dek_list','override_items','override_index']:
+    for p in ['figure_mode','figure_path','figure_items','figure_list','override_items','override_index']:
         if hasattr(wm,p): delattr(wm,p)
 
 def override_and_remove_collection(
@@ -376,8 +376,8 @@ def override_and_remove_collection(
 
     return True
 
-class DEK_OT_delete_override(Operator):
-    bl_idname = "dek.delete_override"
+class Figure_OT_delete_override(Operator):
+    bl_idname = "figure.delete_override"
     bl_label = "Delete"
     bl_description = "Unlink and remove selected library-override collection"
 
@@ -400,11 +400,11 @@ class DEK_OT_delete_override(Operator):
         if cam_coll.children.get(name):
             cam_coll.children.unlink(coll)
         bpy.data.collections.remove(coll)
-        bpy.ops.dek.refresh_override_list()
+        bpy.ops.figure.refresh_override_list()
         return {'FINISHED'}
 
-class DEK_OT_external_import(Operator):
-    bl_idname = "dek.external_import"
+class Figure_OT_external_import(Operator):
+    bl_idname = "figure.external_import"
     bl_label = "外部参照読込"
     bl_description = (
         "Load external reference with Link, Relative Path, and Instance Object Data set to True."
@@ -479,8 +479,8 @@ class DEK_OT_external_import(Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-class DEK_OT_append_import(Operator):
-    bl_idname = "dek.append_import"
+class Figure_OT_append_import(Operator):
+    bl_idname = "figure.append_import"
     bl_label = "通常読込"
     bl_description = "Append loading (Localize All: True, skip existing collections)."
     filepath: StringProperty(name="Blend File", subtype='FILE_PATH')
@@ -520,8 +520,8 @@ class DEK_OT_append_import(Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-class DEK_OT_external_localize(Operator):
-    bl_idname = "dek.external_localize"
+class Figure_OT_external_localize(Operator):
+    bl_idname = "figure.external_localize"
     bl_label = "Localize"
     bl_description = "Disconnect the external reference of the selected object."
     bl_options = {'REGISTER', 'UNDO'}
@@ -541,9 +541,9 @@ class DEK_OT_external_localize(Operator):
 
         return {'FINISHED'}
 
-class DEK_PTO_panel(Panel):
+class Figure_PTO_panel(Panel):
     bl_label = "Import"
-    bl_idname = "DEK_PTO_panel"
+    bl_idname = "Figure_PTO_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Model'
@@ -551,18 +551,18 @@ class DEK_PTO_panel(Panel):
     def draw(self, context):
         layout = self.layout
         layout.label(text="model")
-        layout.operator('dek.external_import', text="外部参照読込")
-        layout.operator('dek.append_import', text="通常読込")
+        layout.operator('figure.external_import', text="外部参照読込")
+        layout.operator('figure.append_import', text="通常読込")
         layout.separator()
         layout.label(text="Localize")
         layout.label(text="選択したオブジェクトを編集可能にする")
-        layout.operator('dek.external_localize', text="Localize")
+        layout.operator('figure.external_localize', text="Localize")
 ######
 ######
 
-class DEK_Panel(bpy.types.Panel):
-    bl_label = "Dek_Controll"
-    bl_idname = "OBJECT_PT_Dek_Panel"
+class Figure_Panel(bpy.types.Panel):
+    bl_label = "Figure_Controll"
+    bl_idname = "OBJECT_PT_Figure_Panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Model'
@@ -580,25 +580,32 @@ class DEK_Panel(bpy.types.Panel):
         
         layout.label(text="ポーズオプション")
         layout.operator("wm.all_clear")
+        layout.operator("wm.select_clear")
         layout.operator("wm.copy_pose")
         layout.operator("wm.paste_pose")
         layout.operator("wm.mirror_pose")
     
 def button1_callback(self):
+    bpy.ops.pose.select_all(action='DESELECT')
+    bpy.ops.pose.select_all(action='SELECT')
     bpy.ops.pose.transforms_clear()
     bpy.ops.pose.select_all(action='SELECT')
     bpy.ops.pose.transforms_clear()
     bpy.ops.pose.select_all(action='DESELECT')
 
 def button2_callback(self):
-    bpy.ops.pose.copy()
+    bpy.ops.pose.transforms_clear()
     bpy.ops.pose.select_all(action='DESELECT')
 
 def button3_callback(self):
-    bpy.ops.pose.paste(flipped=False)
+    bpy.ops.pose.copy()
     bpy.ops.pose.select_all(action='DESELECT')
 
 def button4_callback(self):
+    bpy.ops.pose.paste(flipped=False)
+    bpy.ops.pose.select_all(action='DESELECT')
+    
+def button5_callback(self):
     bpy.ops.pose.copy()
     bpy.ops.pose.paste(flipped=True)
     bpy.ops.pose.select_all(action='DESELECT') 
@@ -606,10 +613,15 @@ def button4_callback(self):
 class GizmoToggleOperator(bpy.types.Operator):
     bl_idname = "object.gizmo_toggle_operator"
     bl_label = "Toggle Gizmo"
-    
+
     def execute(self, context):
-        context.space_data.show_gizmo_object_translate = not context.space_data.show_gizmo_object_translate
-        context.space_data.show_gizmo_object_rotate = not context.space_data.show_gizmo_object_rotate
+        space = context.space_data
+        if space.show_gizmo_object_translate:
+            space.show_gizmo_object_translate = False
+            space.show_gizmo_object_rotate = True
+        else:
+            space.show_gizmo_object_translate = True
+            space.show_gizmo_object_rotate = False
         return {'FINISHED'}
 
 class VIEW3D_OT_SwitchAxis(bpy.types.Operator):
@@ -635,13 +647,21 @@ class All_Clear(bpy.types.Operator):
     def execute(self, context):
         button1_callback(None)
         return {'FINISHED'}  
+
+class Select_Clear(bpy.types.Operator):
+    bl_idname = "wm.select_clear"
+    bl_label = "Select_Clear"
+
+    def execute(self, context):
+        button2_callback(None)
+        return {'FINISHED'}  
     
 class Copy_Pose(bpy.types.Operator):
     bl_idname = "wm.copy_pose"
     bl_label = "Copy_Pose"
 
     def execute(self, context):
-        button2_callback(None)
+        button3_callback(None)
         return {'FINISHED'}    
 
 class Paste_Pose(bpy.types.Operator):
@@ -649,7 +669,7 @@ class Paste_Pose(bpy.types.Operator):
     bl_label = "Paste_Pose"
 
     def execute(self, context):
-        button3_callback(None)
+        button4_callback(None)
         return {'FINISHED'}
 
 class Mirror_Pose(bpy.types.Operator):
@@ -657,25 +677,26 @@ class Mirror_Pose(bpy.types.Operator):
     bl_label = "Mirror_Pose"
 
     def execute(self, context):
-        button4_callback(None)
+        button5_callback(None)
         return {'FINISHED'}
 ######
 ######
 classes = (
-    DekItem,
+    FigureItem,
     OverrideItem,
-    DEK_OT_setup,
-    DEK_OT_refresh_override_list,
-    DEK_OT_add,
-    DEK_OT_delete_override,
-    DEK_UL_override_list,
-    DEK_PT_panel,
-    DEK_OT_external_import,
-    DEK_OT_append_import,
-    DEK_OT_external_localize,
-    DEK_Panel,
-    DEK_PTO_panel,
+    Figure_OT_setup,
+    Figure_OT_refresh_override_list,
+    Figure_OT_add,
+    Figure_OT_delete_override,
+    Figure_UL_override_list,
+    Figure_PT_panel,
+    Figure_OT_external_import,
+    Figure_OT_append_import,
+    Figure_OT_external_localize,
+    Figure_Panel,
+    Figure_PTO_panel,
     All_Clear,
+    Select_Clear,
     Copy_Pose,
     Paste_Pose,
     Mirror_Pose,
@@ -688,7 +709,7 @@ def register():
         bpy.utils.register_class(cls)
     init_props()
     try:
-        bpy.ops.dek.refresh_override_list()
+        bpy.ops.figure.refresh_override_list()
     except RuntimeError as e:
         pass
     
