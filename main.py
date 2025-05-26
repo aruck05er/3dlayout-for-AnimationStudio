@@ -37,10 +37,22 @@ def update_camera_list(scene):
         scene.camera_index = max(0, len(col) - 1)
 
 def update_new_res_x(self, context):
-    context.scene.render.resolution_x = self.new_setting_res_x
+    scene = context.scene
+    scene.render.resolution_x = scene.new_setting_res_x
+    if scene.lock_resolution_ratio:
+        scale = scene.new_setting_res_x / 1920
+        new_y = int(1080 * scale)
+        scene.new_setting_res_y = new_y
+        scene.render.resolution_y = new_y
 
 def update_new_res_y(self, context):
-    context.scene.render.resolution_y = self.new_setting_res_y
+    scene = context.scene
+    scene.render.resolution_y = scene.new_setting_res_y
+    if scene.lock_resolution_ratio:
+        scale = scene.new_setting_res_y / 1080
+        new_x = int(1920 * scale)
+        scene.new_setting_res_x = new_x
+        scene.render.resolution_x = new_x
 
 def clean_unpaired_switch_collections():
     from collections import defaultdict
@@ -78,9 +90,7 @@ def clean_unpaired_switch_collections():
             bpy.context.scene.collection.children.unlink(coll)
 
         bpy.data.collections.remove(coll)
-
     bpy.ops.outliner.orphans_purge(do_recursive=True)
-    print(f"Unpaired Switch Collection 削除完了: {len(unpaired)} 件")
     
 @persistent
 def update_camera(self, context):
@@ -336,7 +346,6 @@ class OBJECT_OT_delete_switch_collection(Operator):
 class OBJECT_OT_copy_layer(Operator):
     bl_idname = "object.copy_layer"
     bl_label = "Copy Layer"
-    bl_description = "Duplicate the active camera’s collection and all its child collections/objects"
     
     new_name: StringProperty(
         name="New Collection Name",
@@ -351,7 +360,6 @@ class OBJECT_OT_copy_layer(Operator):
         src_coll = bpy.data.collections.get(cam.name)
         new_root = bpy.data.collections.new(self.new_name)
         context.scene.collection.children.link(new_root)
-        
         duplicate_collection(src_coll, new_root)
 
         for obj in new_root.objects:
@@ -359,7 +367,7 @@ class OBJECT_OT_copy_layer(Operator):
                 obj.name = self.new_name
                 obj.data.name = self.new_name
                 break
-
+            
         context.view_layer.update()
         return {'FINISHED'}
     
@@ -478,9 +486,6 @@ class Camera_ViewFollow(bpy.types.Operator):
 
     def execute(self, context):
         area = next((a for a in context.screen.areas if a.type == 'VIEW_3D'), None)
-        if not area:
-            self.report({'WARNING'}, "The 3D Viewport could not be found.")
-            return {'CANCELLED'}
         for space in area.spaces:
             if space.type == 'VIEW_3D':
                 space.lock_camera = not space.lock_camera
@@ -526,6 +531,18 @@ class VIEW3D_PT_viewport_camera_lens(Panel):
         space = context.space_data
         layout.prop(space, "lens", text="画角")
 
+class SCENE_OT_set_base_resolution(Operator):
+    bl_idname = "scene.set_base_resolution"
+    bl_label = "基準解像度 (1920x1080)"
+
+    def execute(self, context):
+        scene = context.scene
+        scene.new_setting_res_x = 1920
+        scene.new_setting_res_y = 1080
+        scene.render.resolution_x = 1920
+        scene.render.resolution_y = 1080
+        return {'FINISHED'}
+
 class VIEW3D_PT_resolution_settings(Panel):
     bl_label = "Resolution Settings"
     bl_space_type = 'VIEW_3D'
@@ -535,6 +552,8 @@ class VIEW3D_PT_resolution_settings(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
+        layout.operator("scene.set_base_resolution", text="基準解像度", icon='FILE_REFRESH')
+        layout.prop(scene, "lock_resolution_ratio", text="比率を固定")
         layout.prop(
             scene, "new_setting_res_x",
             text="解像度 X"
@@ -610,42 +629,45 @@ class OverScanCamera(Operator):
 def ResolutionUpdate(self, context):
     scene = context.scene
     overscan = scene.camera_overscan
-    render_settings = scene.render
-    active_camera = getattr(scene, "camera", None)
-    active_cam = getattr(active_camera, "data", None)
+    render = scene.render
+    cam = scene.camera
+    cam_data = cam.data if cam else None
 
-    if not active_cam or active_camera.type not in {'CAMERA'}:
-        return None
+    if not cam or cam.type != 'CAMERA':
+        return
 
     if overscan.RO_Activate:
-        
         if overscan.RO_Safe_SensorSize == -1:
-            overscan.RO_Safe_Res_X = render_settings.resolution_x
-            overscan.RO_Safe_Res_Y = render_settings.resolution_y
-            overscan.RO_Safe_SensorSize = active_cam.sensor_width
-            overscan.RO_Safe_SensorFit = active_cam.sensor_fit
+            overscan.RO_Safe_Res_X = render.resolution_x
+            overscan.RO_Safe_Res_Y = render.resolution_y
+            overscan.RO_Safe_SensorSize = cam_data.sensor_width
+            overscan.RO_Safe_SensorFit = cam_data.sensor_fit
 
-        if overscan.RO_Custom_Res_X == 0 or overscan.RO_Custom_Res_Y == 0:
-            if overscan.RO_Custom_Res_X != render_settings.resolution_x:
-                overscan.RO_Custom_Res_X = render_settings.resolution_x
-            if overscan.RO_Custom_Res_Y != render_settings.resolution_y:
-                overscan.RO_Custom_Res_Y = render_settings.resolution_y
+        if overscan.RO_Custom_Res_X == 0:
+            overscan.RO_Custom_Res_X = render.resolution_x
+        if overscan.RO_Custom_Res_Y == 0:
+            overscan.RO_Custom_Res_Y = render.resolution_y
 
-        active_cam.sensor_width = scene.camera_overscan.RO_Safe_SensorSize
-        sensor_size_factor = overscan.RO_Custom_Res_X / overscan.RO_Safe_Res_X
-        Old_SensorSize = active_cam.sensor_width
-        New_SensorSize = Old_SensorSize * sensor_size_factor
+        factor_x = overscan.RO_Custom_Res_X / overscan.RO_Safe_Res_X
+        factor_y = overscan.RO_Custom_Res_Y / overscan.RO_Safe_Res_Y
 
-        active_cam.sensor_width = New_SensorSize
-        render_settings.resolution_x = overscan.RO_Custom_Res_X
-        render_settings.resolution_y = overscan.RO_Custom_Res_Y
+        cam_data.sensor_fit = 'HORIZONTAL'
+        cam_data.sensor_width = overscan.RO_Safe_SensorSize
+
+        if factor_x > 1.0 and abs(factor_y - 1.0) < 0.01:
+            cam_data.sensor_width *= factor_x
+
+        elif factor_y > 1.0 and abs(factor_x - 0.5) < 0.01:
+            cam_data.sensor_width *= factor_y
+        render.resolution_x = overscan.RO_Custom_Res_X
+        render.resolution_y = overscan.RO_Custom_Res_Y
 
     else:
         if overscan.RO_Safe_SensorSize != -1:
-            render_settings.resolution_x = overscan.RO_Safe_Res_X
-            render_settings.resolution_y = overscan.RO_Safe_Res_Y
-            active_cam.sensor_width = overscan.RO_Safe_SensorSize
-            active_cam.sensor_fit = overscan.RO_Safe_SensorFit
+            render.resolution_x = overscan.RO_Safe_Res_X
+            render.resolution_y = overscan.RO_Safe_Res_Y
+            cam_data.sensor_width = overscan.RO_Safe_SensorSize
+            cam_data.sensor_fit = overscan.RO_Safe_SensorFit
             overscan.RO_Safe_SensorSize = -1
 
 def RO_Menu(self, context):
@@ -798,10 +820,6 @@ class SCENE_OT_camera_resolution_add(Operator):
             context.scene.new_setting_res_x,
             context.scene.new_setting_res_y
         )
-        self.report(
-            {'INFO'},
-            f"Saved {cam.resolution_xy[0]}×{cam.resolution_xy[1]} to {cam.name}"
-        )
         return {'FINISHED'}
 
 class SCENE_OT_camera_resolution_remove(Operator):
@@ -813,11 +831,7 @@ class SCENE_OT_camera_resolution_remove(Operator):
         if not cam or cam.type != 'CAMERA':
             self.report({'ERROR'}, "No active camera.")
             return {'CANCELLED'}
-        cam.resolution_xy = (1632, 918)
-        self.report(
-            {'INFO'},
-            f"Reset resolution of {cam.name} to default"
-        )
+        cam.resolution_xy = (1920, 1080)
         return {'FINISHED'}
     
 # -------------------------------------------------------------------
@@ -881,9 +895,6 @@ class CAMERA_OT_move_direction(Operator):
     def execute(self, context):
         obj = context.active_object
         props = getattr(context.scene, "cam_control_props", None)
-        if not props:
-            self.report({'ERROR'}, "cam_control_props が初期化されていません。")
-            return {'CANCELLED'}
         if not obj or obj.type != 'CAMERA':
             self.report({'WARNING'}, "No camera selected")
             return {'CANCELLED'}
@@ -1015,9 +1026,6 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
 
         scene = context.scene
         cam = scene.camera
-        if not cam:
-            self.report({'ERROR'}, "There is no active camera.")
-            return {'CANCELLED'}
 
         cam_col = bpy.data.collections.get(cam.name)
         if not cam_col:
@@ -1084,10 +1092,8 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
                 if hasattr(o.data, "materials"):
                     o.data.materials.clear()
                     o.data.materials.append(mat)
-
-        self.report({'INFO'}, f"{count} object(s) processed and structured with collections.")
+                    
         return {'FINISHED'}
-
 
 # ---------------------------------------------------
 # Walk_Navigation_Panel
@@ -1164,6 +1170,7 @@ class VIEW3D_PT_add_frame(Panel):
             box.label(text=f"フレーム {idx + 1}", icon='IMAGE_DATA')
             row = box.row()
             row.prop(bg, 'show_background_image', text="有効")
+            row.operator("camera.set_standard_frame_scale", text="標準フレームサイズ")
             row.label(text=bg.image.name if bg.image else "No Image")
 
             col = box.column(align=True)
@@ -1175,6 +1182,28 @@ class VIEW3D_PT_add_frame(Panel):
             op = col.operator("camera.remove_frame_image", text="このフレームを削除")
             op.index = idx
 
+class CAMERA_OT_set_standard_frame_scale(bpy.types.Operator):
+    bl_idname = "camera.set_standard_frame_scale"
+    bl_label = "標準フレームサイズ"
+
+    def execute(self, context):
+        scene = context.scene
+        cam = scene.camera
+        if not cam or cam.type != 'CAMERA':
+            self.report({'ERROR'}, "カメラが未選択です。")
+            return {'CANCELLED'}
+        
+        cam_data = cam.data
+        x_res = scene.render.resolution_x
+        y_res = scene.render.resolution_y
+        scale = calculate_scale(x_res, y_res)
+
+        for bg in cam_data.background_images:
+            if bg.show_background_image:
+                bg.scale = scale
+
+        return {'FINISHED'}
+    
 class CAMERA_OT_add_frame_image(Operator):
     bl_idname = "camera.add_frame_image"
     bl_label = "Add Frame Image"
@@ -1182,9 +1211,6 @@ class CAMERA_OT_add_frame_image(Operator):
     def execute(self, context):
 
         cam = context.scene.camera
-        if not cam or cam.type != 'CAMERA':
-            self.report({'ERROR'}, "There is no active camera.")
-            return {'CANCELLED'}
         cam_data = cam.data
         cam_data.show_background_images = True
 
@@ -1231,6 +1257,20 @@ class CAMERA_OT_remove_frame_image(Operator):
             self.report({'ERROR'}, "Invalid background image index")
             return {'CANCELLED'}
 
+def calculate_scale(x: int, y: int, base_x: int = 1920, base_y: int = 1080) -> float:
+
+    scale_x = x / base_x
+    scale_y = y / base_y
+
+    aspect_ratio = x / y
+    base_ratio = base_x / base_y
+
+    if aspect_ratio >= base_ratio:
+        s = 1.0 / max(scale_x, scale_y)
+    else:
+        s = 1.0 / max(scale_x, scale_y)
+    return s
+
 # ---------------------------------------------------
 # Rendering properties
 # ---------------------------------------------------
@@ -1260,17 +1300,19 @@ class CAMERA_OT_apply_transform_from_bg(Operator):
     bl_label = "Apply Transform From BG"
     
     def calculate_s(x, y):
+        base_x = 1920
+        base_y = 1080
         aspect = x / y
-        threshold = 1632 / 918
+        threshold = base_x / base_y
 
-        if x > 1632 and aspect > threshold:
-            return 1.0 + (x - 1632) / (2100 - 1632) * (1.2865 - 1.0)
-        if y <= 918:
+        if x > base_x and aspect > threshold:
+            return 1.0 + (x - base_x) / (2100 - base_x) * (1.2865 - 1.0)
+        if y <= base_y:
             return 1.0
-        elif y <= 1632:
-            return 1.0 + (y - 918) / (1632 - 918) * (1.7778 - 1.0)
+        elif y <= base_x:
+            return 1.0 + (y - base_y) / (base_x - base_y) * (1.7778 - 1.0)
         else:
-            return 1.78 + (y - 1632) / (1900 - 1632) * (2.069 - 1.78)
+            return 1.78 + (y - base_x) / (1900 - base_x) * (2.069 - 1.78)
 
     def execute(self, context):
         scene = context.scene
@@ -1363,7 +1405,7 @@ class CAMERA_OT_apply_transform_from_bg(Operator):
                     alpha = bg_image.alpha
 
                     px_offset_x = offset_x * res_x
-                    px_offset_y = (offset_y * res_x / 0.889) / 2
+                    px_offset_y = (offset_y * res_x / 0.887) / 2
 
                     base_scale = self.__class__.calculate_s(res_x, res_y)
                     final_scale = base_scale * scale
@@ -1416,6 +1458,16 @@ def register_props():
     bpy.types.Scene.camera_overscan = PointerProperty(type=camera_overscan_props)
     bpy.types.Scene.switch_coll_list = CollectionProperty(type=SwitchCollItem)
     bpy.types.Scene.switch_coll_index = IntProperty(default=0, min=0)
+    bpy.types.Scene.resolution_ratio = FloatProperty(
+        name="アスペクト比",
+        default=1920 / 1080,
+        options={'HIDDEN'}
+    )
+    bpy.types.Scene.lock_resolution_ratio = BoolProperty(
+        name="比率を固定",
+        description="解像度のアスペクト比を固定する",
+        default=False
+    )
 
 def unregister_props():
     del bpy.types.Scene.camera_list
@@ -1446,6 +1498,7 @@ classes = (
     VIEW3D_PT_resolution_settings,
     SCENE_OT_camera_resolution_add,
     SCENE_OT_camera_resolution_remove,
+    SCENE_OT_set_base_resolution,
     Camera_ViewFollow,
     OverScanCamera,
     camera_overscan_props,
@@ -1455,6 +1508,7 @@ classes = (
     VIEW3D_PT_add_frame,
     CAMERA_OT_add_frame_image,
     CAMERA_OT_remove_frame_image,
+    CAMERA_OT_set_standard_frame_scale,
     CAMERA_OT_toggle_eyelevel,
     VIEW3D_PT_render_adjust,
     CAMERA_OT_apply_transform_from_bg,

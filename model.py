@@ -61,7 +61,6 @@ class OverrideItem(PropertyGroup):
 class Figure_OT_setup(Operator):
     bl_idname = "figure.setup"
     bl_label = "Set up Figure List"
-    bl_description = "Scan the custom folder and list .blend files"
 
     def execute(self, context):
         wm = context.window_manager
@@ -82,7 +81,6 @@ class Figure_OT_setup(Operator):
 class Figure_OT_refresh_override_list(Operator):
     bl_idname = "figure.refresh_override_list"
     bl_label = "Refresh Armature List"
-    bl_description = "Refresh list of collections under the active camera that contain armatures"
     
     def execute(self, context):
         wm = context.window_manager
@@ -127,7 +125,6 @@ def override_selection_update(self, context):
 class Figure_OT_add(Operator):
     bl_idname = "figure.add"
     bl_label = "Add Figure"
-    bl_description = "Link all collections from the selected .blend file and store them in the active camera's collection"
 
     def execute(self, context):
         wm = context.window_manager
@@ -172,7 +169,8 @@ class Figure_OT_add(Operator):
                     imported.append(col)
             except Exception as e:
                 self.report({'WARNING'}, f"Failed to link {cname}: {e}")
-
+        
+        imported = filter_top_level(imported)
         cam = context.scene.camera
         if cam and cam.name in bpy.data.collections:
             cam_coll = bpy.data.collections[cam.name]
@@ -204,6 +202,17 @@ class Figure_OT_add(Operator):
             
         override_and_remove_collection()
     
+        def localize_hierarchy(coll):
+            try:
+                coll.make_local()
+            except Exception:
+                pass
+            for child in coll.children:
+                localize_hierarchy(child)
+
+        root_coll = context.view_layer.active_layer_collection.collection
+        localize_hierarchy(root_coll)
+
         return {'FINISHED'}
 
 def update_armature_height(context):
@@ -305,7 +314,6 @@ def init_props():
         update=lambda self, ctx: update_armature_height(ctx)
     )
 
-
 def clear_props():
     wm = bpy.types.WindowManager
     for p in ['figure_mode','figure_path','figure_items','figure_list','override_items','override_index']:
@@ -337,8 +345,6 @@ def override_and_remove_collection(
     if not new_override:
         new_override = scene.collection.children.get(original_name) \
             or bpy.data.collections.get(original_name)
-    print(f"Created override: {original_name} → {new_override.name}")
-
     parent = None
     
     if new_override.name in [c.name for c in scene.collection.children]:
@@ -361,25 +367,20 @@ def override_and_remove_collection(
         n += 1
 
     new_override.rename(cand, mode='NEVER')
-    print(f"Renamed override to '{new_override.name}'")
 
     if original_name in [c.name for c in scene.collection.children]:
         scene.collection.children.unlink(lc)
-        print(f"Unlinked original from scene.collection")
     for col in bpy.data.collections:
         if original_name in [c.name for c in col.children]:
             col.children.unlink(lc)
-            print(f"Unlinked original from '{col.name}'")
 
     bpy.data.collections.remove(lc)
-    print(f"Removed original linked collection '{original_name}'")
 
     return True
 
 class Figure_OT_delete_override(Operator):
     bl_idname = "figure.delete_override"
     bl_label = "Delete"
-    bl_description = "Unlink and remove selected library-override collection"
 
     def execute(self, context):
         wm = context.window_manager
@@ -406,10 +407,6 @@ class Figure_OT_delete_override(Operator):
 class Figure_OT_external_import(Operator):
     bl_idname = "figure.external_import"
     bl_label = "外部参照読込"
-    bl_description = (
-        "Load external reference with Link, Relative Path, and Instance Object Data set to True."
-        "Execute override_and_remove_collection on top-level collections only."
-    )
 
     filepath: StringProperty(name="Blend File", subtype='FILE_PATH')
 
@@ -482,7 +479,6 @@ class Figure_OT_external_import(Operator):
 class Figure_OT_append_import(Operator):
     bl_idname = "figure.append_import"
     bl_label = "通常読込"
-    bl_description = "Append loading (Localize All: True, skip existing collections)."
     filepath: StringProperty(name="Blend File", subtype='FILE_PATH')
 
     def execute(self, context):
@@ -523,7 +519,6 @@ class Figure_OT_append_import(Operator):
 class Figure_OT_external_localize(Operator):
     bl_idname = "figure.external_localize"
     bl_label = "Localize"
-    bl_description = "Disconnect the external reference of the selected object."
     bl_options = {'REGISTER', 'UNDO'}
     
     def draw(self, context):
