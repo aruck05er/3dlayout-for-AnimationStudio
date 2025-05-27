@@ -52,10 +52,10 @@ def collect_override_layer_collections(layer_coll, result_list):
     for child in layer_coll.children:
         collect_override_layer_collections(child, result_list)
 
-class FigureItem(PropertyGroup):
+class Figure_Item(PropertyGroup):
     name: StringProperty(name="Blend File Name")
 
-class OverrideItem(PropertyGroup):
+class Override_Item(PropertyGroup):
     name: StringProperty(name="Collection Name")
 
 class Figure_OT_setup(Operator):
@@ -229,13 +229,13 @@ def update_armature_height(context):
         bpy.context.view_layer.update()
         bpy.ops.object.transforms_to_deltas(mode='ALL')
         
-class Figure_UL_override_list(UIList):
+class Figure_OT_override_list(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         layout.label(text=item.name)
 
-class Figure_PT_panel(Panel):
+class Figure_OT_panel(Panel):
     bl_label = "Figure"
-    bl_idname = "Figure_PT_panel"
+    bl_idname = "Figure_OT_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "Model"
@@ -259,7 +259,7 @@ class Figure_PT_panel(Panel):
         layout.label(text='List')
         layout.operator('figure.refresh_override_list', text='リスト更新')
         layout.template_list(
-            'Figure_UL_override_list', '',
+            'Figure_OT_override_list', '',
             wm, 'override_items',
             wm, 'override_index',
             rows=5
@@ -295,7 +295,7 @@ def init_props():
         subtype='DIR_PATH',
         default=""
     )
-    wm.figure_items = CollectionProperty(type=FigureItem)
+    wm.figure_items = CollectionProperty(type=Figure_Item)
     wm.figure_list = EnumProperty(
         name="Blend Files",
         description="Choose a .blend file",
@@ -303,7 +303,7 @@ def init_props():
             (item.name, item.name, "") for item in context.window_manager.figure_items
         ] or [("", "None", "")],
     )
-    wm.override_items = CollectionProperty(type=OverrideItem)
+    wm.override_items = CollectionProperty(type=Override_Item)
     wm.override_index = IntProperty(name="Index", default=0, min=0, update=override_selection_update)
     wm.armature_height_cm = IntProperty(
         name="身長",
@@ -570,6 +570,7 @@ class Figure_Panel(bpy.types.Panel):
         layout.label(text="軸の切り替え")
         col = layout.column(align=True)
         col.operator_menu_enum("view3d.switch_axis", "axis_type", text= context.scene.transform_orientation_slots[1].type, icon='WORLD')
+        
         layout.label(text="ポーズオプション")
         layout.operator("wm.all_clear")
         layout.operator("wm.select_clear")
@@ -673,14 +674,14 @@ class Mirror_Pose(bpy.types.Operator):
         return {'FINISHED'}
 
 classes = (
-    FigureItem,
-    OverrideItem,
+    Figure_Item,
+    Override_Item,
     Figure_OT_setup,
     Figure_OT_refresh_override_list,
     Figure_OT_add,
     Figure_OT_delete_override,
-    Figure_UL_override_list,
-    Figure_PT_panel,
+    Figure_OT_override_list,
+    Figure_OT_panel,
     Figure_OT_external_import,
     Figure_OT_append_import,
     Figure_OT_external_localize,

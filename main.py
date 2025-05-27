@@ -19,9 +19,6 @@ from bpy.props import (
 from bpy.types import PropertyGroup, UIList, Panel, Operator
 from mathutils import Vector
 
-# ---------------------------------------------------
-# Update Camera
-# ---------------------------------------------------
 def update_camera_list(scene):
     cams = sorted(
         (o for o in scene.objects if o.type == 'CAMERA'),
@@ -200,9 +197,9 @@ def update_camera(self, context):
                     con.target = cam
                     break
         else:
-            create_eye_level_circle(cam)
+            EyeLevel_create_circle(cam)
     else:
-        remove_eye_level_circle()
+        EyeLevel_remove_circle()
     # 10
     for area in bpy.context.screen.areas:
         if area.type == 'VIEW_3D':
@@ -225,13 +222,10 @@ def update_camera(self, context):
     bpy.ops.scene.refresh_switch_list()
     clean_unpaired_switch_collections()
 
-# ---------------------------------------------------
-# Panels
-# ---------------------------------------------------
-class CameraItem(PropertyGroup):
+class Camera_Item(PropertyGroup):
     name: StringProperty(name="Camera Name")
 
-class SCENE_UL_camera_list(UIList):
+class VIEW3D_PT_camera_list(UIList):
     def draw_item(
         self, context, layout, data, item,
         icon, active_data, active_propname, index
@@ -250,10 +244,10 @@ class SCENE_UL_camera_list(UIList):
             name = cam.name
         layout.label(text=name, icon=icon_id)
         
-class SwitchCollItem(PropertyGroup):
+class Switch_collections_Item(PropertyGroup):
     name: StringProperty(name="Collection Name")
 
-class SCENE_UL_switch_coll_list(UIList):
+class Switch_collections_list(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         layout.label(text=item.name, icon='OUTLINER_COLLECTION')
 
@@ -267,7 +261,7 @@ class VIEW3D_PT_camera_switcher(Panel):
         layout = self.layout
         scene = context.scene
         layout.template_list(
-            "SCENE_UL_camera_list", "",
+            "VIEW3D_PT_camera_list", "",
             scene, "camera_list",
             scene, "camera_index",
             rows=8
@@ -280,14 +274,14 @@ class VIEW3D_PT_camera_switcher(Panel):
             return
         
         layout.template_list(
-            "SCENE_UL_switch_coll_list", "",
+            "Switch_collections_list", "",
             scene, "switch_coll_list",
             scene, "switch_coll_index",
             rows=4
         )
         layout.operator("scene.delete_switch_collection", text="Delete")
 
-class OBJECT_OT_refresh_switch_list(Operator):
+class OBJECT_refresh_switch_list(Operator):
     bl_idname = "scene.refresh_switch_list"
     bl_label = "Refresh Switch-Collections"
     bl_description = "List the collections within the active camera’s collection that have the “Switch Collection” property."
@@ -317,7 +311,7 @@ class OBJECT_OT_refresh_switch_list(Operator):
         scan(root)
         return {'FINISHED'}
 
-class OBJECT_OT_delete_switch_collection(Operator):
+class OBJECT_delete_switch_collection(Operator):
     bl_idname = "scene.delete_switch_collection"
     bl_label = "Delete"
     bl_description = "Unlink the selected collection from the scene."
@@ -342,7 +336,7 @@ class OBJECT_OT_delete_switch_collection(Operator):
         bpy.ops.scene.refresh_switch_list()
         return {'FINISHED'}
 
-class OBJECT_OT_copy_layer(Operator):
+class OBJECT_copy_layer(Operator):
     bl_idname = "object.copy_layer"
     bl_label = "Copy Layer"
     
@@ -404,7 +398,7 @@ def duplicate_collection(src, dest):
 
     return obj_map
     
-class VIEW3D_PT_cam_control(Panel):
+class VIEW3D_PT_camera_control(Panel):
     bl_label = "Cam Control"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -478,7 +472,7 @@ class VIEW3D_PT_cam_control(Panel):
                 op.axis = 'Y'
                 op.direction = 1.0
                     
-class Camera_ViewFollow(bpy.types.Operator):
+class VIEW3D_PT_Camera_ViewFollow(bpy.types.Operator):
     bl_idname = "object.camera_viewfollow"
     bl_label = "Lock the camera to the view."
     bl_options = {'REGISTER', 'UNDO'}
@@ -517,9 +511,9 @@ class Camera_ViewFollow(bpy.types.Operator):
             text="Reset Overscan"
         )
 
-class VIEW3D_PT_viewport_camera_lens(Panel):
+class VIEW3D_PT_Camera_viewport_lens(Panel):
     bl_label = "Viewport Camera Lens"
-    bl_idname = "VIEW3D_PT_viewport_camera_lens"
+    bl_idname = "VIEW3D_PT_Camera_viewport_lens"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "Camera"
@@ -530,7 +524,7 @@ class VIEW3D_PT_viewport_camera_lens(Panel):
         space = context.space_data
         layout.prop(space, "lens", text="画角")
 
-class SCENE_OT_set_base_resolution(Operator):
+class VIEW3D_PT_set_base_resolution(Operator):
     bl_idname = "scene.set_base_resolution"
     bl_label = "基準解像度 (1920x1080)"
 
@@ -562,7 +556,7 @@ class VIEW3D_PT_resolution_settings(Panel):
             text="解像度 Y"
         )
 
-class Camera_viewpoint_btn(Operator):
+class VIEW3D_PT_Camera_viewpoint_btn(Operator):
     bl_idname = 'camera.add'
     bl_label = 'カメラを作成'
     bl_options = {'REGISTER'}
@@ -599,10 +593,7 @@ class Camera_viewpoint_btn(Operator):
 
         return {'FINISHED'}
 
-# ---------------------------------------------------
-# overscan
-# ---------------------------------------------------
-class OverScanCamera(Operator):
+class VIEW3D_PT_Camera_OverScan(Operator):
     bl_idname = "scene.over_scan_camera"
     bl_label = "Bake to New Camera"
 
@@ -683,7 +674,7 @@ def RO_Menu(self, context):
         col = layout.column()
         col.label(text="No active Camera type in the Scene", icon='INFO')
 
-class camera_overscan_props(PropertyGroup):
+class VIEW3D_PT_Camera_OverScan_props(PropertyGroup):
     RO_Activate: BoolProperty(
                         default=False,
                         update=ResolutionUpdate
@@ -712,9 +703,9 @@ class camera_overscan_props(PropertyGroup):
                         )
     RO_Safe_SensorFit: StringProperty()
 
-class VIEW3D_PT_OSpanel(Panel):
+class VIEW3D_PT_OS_panel(Panel):
     bl_label = "OverScan"
-    bl_idname = "VIEW3D_PT_OSpanel"
+    bl_idname = "VIEW3D_PT_OS_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Camera'
@@ -736,10 +727,7 @@ class VIEW3D_PT_OSpanel(Panel):
         else:
             layout.label(text="No active Camera in the Scene", icon='INFO')
 
-# ---------------------------------------------------
-# eye_level_circle
-# ---------------------------------------------------
-def create_eye_level_circle(cam):
+def EyeLevel_create_circle(cam):
     name = "EyeLevelCircle"
     if bpy.data.objects.get(name):
         return
@@ -778,12 +766,12 @@ def create_eye_level_circle(cam):
     bpy.context.view_layer.objects.active = cam
     cam.select_set(True)
  
-def remove_eye_level_circle():
+def EyeLevel_remove_circle():
     circle = bpy.data.objects.get("EyeLevelCircle")
     if circle:
         bpy.data.objects.remove(circle, do_unlink=True)
 
-class CAMERA_OT_toggle_eyelevel(bpy.types.Operator):
+class VIEW3D_PT_Camera_toggle_eyelevel(bpy.types.Operator):
     bl_idname = "camera.toggle_eyelevel"
     bl_label = "Toggle EyeLevel Box"
     bl_description = "Add or remove the EyeLevelBox to/from the active camera, and set or clear a Boolean property on the camera."
@@ -796,16 +784,13 @@ class CAMERA_OT_toggle_eyelevel(bpy.types.Operator):
 
         if cam.get("EyeLevel"):
             del cam["EyeLevel"]
-            remove_eye_level_circle()
+            EyeLevel_remove_circle()
         else:
             cam["EyeLevel"] = True
-            create_eye_level_circle(cam)
+            EyeLevel_create_circle(cam)
         return {'FINISHED'}
 
-# ---------------------------------------------------
-# resolution
-# ---------------------------------------------------
-class SCENE_OT_camera_resolution_add(Operator):
+class VIEW3D_PT_Camera_resolution_add(Operator):
     bl_idname = "camera_resolution.add"
     bl_label = "Save Resolution to Camera"
     bl_options = {'REGISTER', 'UNDO'}
@@ -821,7 +806,7 @@ class SCENE_OT_camera_resolution_add(Operator):
         )
         return {'FINISHED'}
 
-class SCENE_OT_camera_resolution_remove(Operator):
+class VIEW3D_PT_Camera_resolution_remove(Operator):
     bl_idname = "camera_resolution.remove"
     bl_label = "Reset Camera Resolution"
 
@@ -832,11 +817,8 @@ class SCENE_OT_camera_resolution_remove(Operator):
             return {'CANCELLED'}
         cam.resolution_xy = (1920, 1080)
         return {'FINISHED'}
-    
-# -------------------------------------------------------------------
-# rocal/world switch
-# -------------------------------------------------------------------
-class CamControlProperties(PropertyGroup):
+
+class VIEW3D_PT_Camera_Control_Properties(PropertyGroup):
     axis_mode: EnumProperty(
         name="Axis Mode",
         description="Choose World or Local axis",
@@ -871,10 +853,7 @@ class CamControlProperties(PropertyGroup):
         default='MOVE'
     )
  
-# -------------------------------------------------------------------
-# move Cam operator
-# -------------------------------------------------------------------
-class CAMERA_OT_move_direction(Operator):
+class VIEW3D_PT_Camera_move_direction(Operator):
     bl_idname = "camera.move_direction"
     bl_label = "Move Camera"
 
@@ -915,35 +894,7 @@ class CAMERA_OT_move_direction(Operator):
         obj.location += move_vec
         return {'FINISHED'}
 
-# -------------------------------------------------------------------
-# move Cam operator
-# -------------------------------------------------------------------
-class CAMERA_OT_apply_rotation(Operator):
-    bl_idname = "camera.apply_rotation"
-    bl_label = "Apply Rotation Increment"
-
-    def execute(self, context):
-        obj = context.active_object
-        props = context.scene.cam_control_props
-
-        if not obj or obj.type != 'CAMERA':
-            self.report({'WARNING'}, "No camera selected")
-            return {'CANCELLED'}
-
-        obj.rotation_mode = 'XYZ'
-        obj.rotation_euler[0] += props.rot_pitch
-        obj.rotation_euler[2] += props.rot_pitch
-
-        props.rot_pitch = 0.0
-        props.rot_yaw = 0.0
-        props.rot_roll = 0.0
-
-        obj.update_tag()
-        context.view_layer.update()
-        
-        return {'FINISHED'}
-    
-class CAMERA_OT_rotate_axis(Operator):
+class VIEW3D_PT_Camera_rotate_axis(Operator):
     bl_idname = "camera.rotate_axis"
     bl_label = "Rotate Camera Axis"
 
@@ -979,11 +930,7 @@ class CAMERA_OT_rotate_axis(Operator):
         
         return {'FINISHED'}
 
-# ---------------------------------------------------
-# Contoll Collection
-# ---------------------------------------------------
-
-class OBJECT_OT_separate_objects(bpy.types.Operator):
+class OBJECT_separate_objects(bpy.types.Operator):
     bl_idname = "object.separate_objects"
     bl_label = "Separate Objects"
     bl_description = (
@@ -1094,9 +1041,6 @@ class OBJECT_OT_separate_objects(bpy.types.Operator):
                     
         return {'FINISHED'}
 
-# ---------------------------------------------------
-# Walk_Navigation_Panel
-# ---------------------------------------------------
 class WalkNavigation_Panel(bpy.types.Panel):
     bl_label = "Walk_Navigation"
     bl_idname = "VIEW3D_PT_walk_navigation"
@@ -1114,7 +1058,7 @@ def activate_walk_navigation(self, context):
     saved_area_type = bpy.context.area.type
     bpy.ops.view3d.walk('INVOKE_DEFAULT')
     
-class OBJECT_OT_ActivateWalkNavigation(bpy.types.Operator):
+class OBJECT_ActivateWalkNavigation(bpy.types.Operator):
     bl_label = "activate_walk_navigation"
     bl_idname = "view3d.activate_walk_navigation"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1123,9 +1067,6 @@ class OBJECT_OT_ActivateWalkNavigation(bpy.types.Operator):
         activate_walk_navigation(self, context)
         return {'FINISHED'}
 
-# ---------------------------------------------------
-# frame_image
-# ---------------------------------------------------
 def get_bg_image(cam_data):
     if cam_data.background_images:
         return cam_data.background_images[0]
@@ -1133,7 +1074,7 @@ def get_bg_image(cam_data):
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-class VIEW3D_PT_add_frame(Panel):
+class VIEW3D_PT_Camera_add_frame(Panel):
     bl_label = "Add Frame"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -1181,7 +1122,7 @@ class VIEW3D_PT_add_frame(Panel):
             op = col.operator("camera.remove_frame_image", text="このフレームを削除")
             op.index = idx
 
-class CAMERA_OT_set_standard_frame_scale(bpy.types.Operator):
+class VIEW3D_PT_Camera_set_standard_frame_scale(bpy.types.Operator):
     bl_idname = "camera.set_standard_frame_scale"
     bl_label = "標準フレームサイズ"
 
@@ -1203,7 +1144,7 @@ class CAMERA_OT_set_standard_frame_scale(bpy.types.Operator):
 
         return {'FINISHED'}
     
-class CAMERA_OT_add_frame_image(Operator):
+class VIEW3D_PT_Camera_add_frame_image(Operator):
     bl_idname = "camera.add_frame_image"
     bl_label = "Add Frame Image"
 
@@ -1234,7 +1175,7 @@ class CAMERA_OT_add_frame_image(Operator):
 
         return {'FINISHED'}
 
-class CAMERA_OT_remove_frame_image(Operator):
+class VIEW3D_PT_Camera_remove_frame_image(Operator):
     bl_idname = "camera.remove_frame_image"
     bl_label = "Remove Frame Image"
 
@@ -1270,10 +1211,7 @@ def calculate_scale(x: int, y: int, base_x: int = 1920, base_y: int = 1080) -> f
         s = 1.0 / max(scale_x, scale_y)
     return s
 
-# ---------------------------------------------------
-# Rendering properties
-# ---------------------------------------------------
-class VIEW3D_PT_render_adjust(Panel):
+class VIEW3D_PT_Camera_render_adjust(Panel):
     bl_label = "Rendering"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -1294,7 +1232,7 @@ class VIEW3D_PT_render_adjust(Panel):
             text="レンダリング",
         )
 
-class CAMERA_OT_apply_transform_from_bg(Operator):
+class VIEW3D_PT_Camera_apply_transform_from_bg(Operator):
     bl_idname = "camera.apply_transform_from_bg"
     bl_label = "Apply Transform From BG"
     
@@ -1428,7 +1366,7 @@ class CAMERA_OT_apply_transform_from_bg(Operator):
 # ---------------------------------------------------
 
 def register_props():
-    bpy.types.Scene.camera_list = CollectionProperty(type=CameraItem)
+    bpy.types.Scene.camera_list = CollectionProperty(type=Camera_Item)
     bpy.types.Scene.camera_index = IntProperty(
         name="Camera Index",
         default=0,
@@ -1453,9 +1391,9 @@ def register_props():
         default=(1632, 918),
         min=1
     )
-    bpy.types.Scene.cam_control_props = PointerProperty(type=CamControlProperties)
-    bpy.types.Scene.camera_overscan = PointerProperty(type=camera_overscan_props)
-    bpy.types.Scene.switch_coll_list = CollectionProperty(type=SwitchCollItem)
+    bpy.types.Scene.cam_control_props = PointerProperty(type=VIEW3D_PT_Camera_Control_Properties)
+    bpy.types.Scene.camera_overscan = PointerProperty(type=VIEW3D_PT_Camera_OverScan_props)
+    bpy.types.Scene.switch_coll_list = CollectionProperty(type=Switch_collections_Item)
     bpy.types.Scene.switch_coll_index = IntProperty(default=0, min=0)
     bpy.types.Scene.resolution_ratio = FloatProperty(
         name="アスペクト比",
@@ -1483,38 +1421,38 @@ def unregister_props():
 # Class registration
 # ---------------------------------------------------
 classes = (
-    CameraItem,
-    SCENE_UL_camera_list,
+    Camera_Item,
+    VIEW3D_PT_camera_list,
     VIEW3D_PT_camera_switcher,
-    SwitchCollItem, 
-    SCENE_UL_switch_coll_list,
-    OBJECT_OT_refresh_switch_list, 
-    OBJECT_OT_delete_switch_collection,
-    OBJECT_OT_copy_layer,
-    VIEW3D_PT_cam_control,
-    Camera_viewpoint_btn,
-    VIEW3D_PT_viewport_camera_lens,
+    Switch_collections_Item, 
+    Switch_collections_list,
+    OBJECT_refresh_switch_list, 
+    OBJECT_delete_switch_collection,
+    OBJECT_copy_layer,
+    VIEW3D_PT_camera_control,
+    VIEW3D_PT_Camera_viewpoint_btn,
+    VIEW3D_PT_Camera_viewport_lens,
     VIEW3D_PT_resolution_settings,
-    SCENE_OT_camera_resolution_add,
-    SCENE_OT_camera_resolution_remove,
-    SCENE_OT_set_base_resolution,
-    Camera_ViewFollow,
-    OverScanCamera,
-    camera_overscan_props,
-    VIEW3D_PT_OSpanel,
+    VIEW3D_PT_Camera_resolution_add,
+    VIEW3D_PT_Camera_resolution_remove,
+    VIEW3D_PT_set_base_resolution,
+    VIEW3D_PT_Camera_ViewFollow,
+    VIEW3D_PT_Camera_OverScan,
+    VIEW3D_PT_Camera_OverScan_props,
+    VIEW3D_PT_OS_panel,
     WalkNavigation_Panel,
-    OBJECT_OT_ActivateWalkNavigation,
-    VIEW3D_PT_add_frame,
-    CAMERA_OT_add_frame_image,
-    CAMERA_OT_remove_frame_image,
-    CAMERA_OT_set_standard_frame_scale,
-    CAMERA_OT_toggle_eyelevel,
-    VIEW3D_PT_render_adjust,
-    CAMERA_OT_apply_transform_from_bg,
-    CamControlProperties,
-    CAMERA_OT_move_direction,
-    CAMERA_OT_rotate_axis,
-    OBJECT_OT_separate_objects,
+    OBJECT_ActivateWalkNavigation,
+    VIEW3D_PT_Camera_add_frame,
+    VIEW3D_PT_Camera_add_frame_image,
+    VIEW3D_PT_Camera_remove_frame_image,
+    VIEW3D_PT_Camera_set_standard_frame_scale,
+    VIEW3D_PT_Camera_toggle_eyelevel,
+    VIEW3D_PT_Camera_render_adjust,
+    VIEW3D_PT_Camera_apply_transform_from_bg,
+    VIEW3D_PT_Camera_Control_Properties,
+    VIEW3D_PT_Camera_move_direction,
+    VIEW3D_PT_Camera_rotate_axis,
+    OBJECT_separate_objects,
 )
 
 @persistent
