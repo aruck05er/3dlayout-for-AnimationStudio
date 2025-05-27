@@ -570,7 +570,6 @@ class Figure_Panel(bpy.types.Panel):
         layout.label(text="軸の切り替え")
         col = layout.column(align=True)
         col.operator_menu_enum("view3d.switch_axis", "axis_type", text= context.scene.transform_orientation_slots[1].type, icon='WORLD')
-        
         layout.label(text="ポーズオプション")
         layout.operator("wm.all_clear")
         layout.operator("wm.select_clear")

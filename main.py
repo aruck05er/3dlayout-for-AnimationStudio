@@ -22,7 +22,6 @@ from mathutils import Vector
 # ---------------------------------------------------
 # Update Camera
 # ---------------------------------------------------
-
 def update_camera_list(scene):
     cams = sorted(
         (o for o in scene.objects if o.type == 'CAMERA'),
